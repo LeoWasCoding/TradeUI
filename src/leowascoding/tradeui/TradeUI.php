@@ -284,7 +284,4 @@ class TradeSession {
         $this->p2->removeWindow($this->menu2->getInventory());
         $this->plugin->endSession($this);
     }
-
-    public function getPlayer1(): Player { return $this->p1; }
-    public function getPlayer2(): Player { return $this->p2; }
 }
