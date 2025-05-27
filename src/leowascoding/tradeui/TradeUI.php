@@ -92,7 +92,8 @@ class TradeSession {
     private array $offered2 = [];
     private bool $confirmed1 = false;
     private bool $confirmed2 = false;
-    private int $confirmSlot = 53;
+    private bool $countdownActive = false;
+    private ?int $countdownTaskId = null;
 
     public function __construct(TradeUI $plugin, Player $p1, Player $p2) {
         $this->plugin = $plugin;
@@ -104,8 +105,8 @@ class TradeSession {
         $this->menu1->setName("Trade with {$p2->getName()}");
         $this->menu2->setName("Trade with {$p1->getName()}");
 
-        $this->menu1->setListener(fn(InvMenuTransaction $t) => $this->onInventoryClick($t, $this->p1, $this->p2, $this->offered1));
-        $this->menu2->setListener(fn(InvMenuTransaction $t) => $this->onInventoryClick($t, $this->p2, $this->p1, $this->offered2));
+        $this->menu1->setListener(fn(InvMenuTransaction $t) => $this->onInventoryClick($t, $this->p1, $this->p2, $this->offered1, $this->confirmed1));
+        $this->menu2->setListener(fn(InvMenuTransaction $t) => $this->onInventoryClick($t, $this->p2, $this->p1, $this->offered2, $this->confirmed2));
     }
 
     public function open(): void {
@@ -122,39 +123,57 @@ class TradeSession {
             public function onRun(): void { $this->session->cancel("timed out"); }
         }, $timeout);
 
-        $confirmItem = StringToItemParser::getInstance()->parse("lime_wool")->setCustomName("§aConfirm trade");
-        $this->menu1->getInventory()->setItem(53, $confirmItem);
-        $this->menu2->getInventory()->setItem(53, $confirmItem);
+        $this->updateConfirmButtons();
+        $this->updateGlassPanes();
+    }
 
+    private function updateConfirmButtons(): void {
+        $confirmItem = StringToItemParser::getInstance()->parse("lime_wool")->setCustomName("§aConfirm trade");
+        $unconfirmItem = StringToItemParser::getInstance()->parse("red_wool")->setCustomName("§cUnconfirm trade");
+
+        $this->menu1->getInventory()->setItem(53, $this->confirmed1 ? $unconfirmItem : $confirmItem);
+        $this->menu2->getInventory()->setItem(53, $this->confirmed2 ? $unconfirmItem : $confirmItem);
+    }
+
+    private function updateGlassPanes(): void {
         $pane = StringToItemParser::getInstance()->parse("red_stained_glass_pane")->setCustomName("§c");
         $this->menu1->getInventory()->setItem(27, $pane);
         $this->menu2->getInventory()->setItem(27, $pane);
-
-        for ($i = 0; $i <= 26; $i++) {
-            $this->menu1->getInventory()->clear($i);
-            $this->menu2->getInventory()->clear($i);
-            $this->menu1->getInventory()->clear($i + 28);
-            $this->menu2->getInventory()->clear($i + 28);
-        }
     }
 
-    private function onInventoryClick(InvMenuTransaction $transaction, Player $owner, Player $other, array &$offered): InvMenuTransactionResult {
+    private function onInventoryClick(InvMenuTransaction $transaction, Player $owner, Player $other, array &$offered, bool &$confirmed): InvMenuTransactionResult {
         $slot = $transaction->getAction()->getSlot();
 
         if ($slot === 53) {
-            $this->setConfirmed($owner);
+            if ($confirmed) {
+                $confirmed = false;
+                $this->countdownCancel();
+                $owner->sendMessage("§cYou unconfirmed the trade.");
+                $other->sendMessage("§c{$owner->getName()} unconfirmed the trade.");
+                $this->updateConfirmButtons();
+                $this->resetCountdownState();
+                return $transaction->discard();
+            } else {
+                $confirmed = true;
+                $owner->sendMessage("§aYou confirmed. Waiting for the other player...");
+                $this->updateConfirmButtons();
+                if ($this->confirmed1 && $this->confirmed2) {
+                    $this->startCountdown();
+                }
+                return $transaction->discard();
+            }
+        }
+
+        if ($slot === 27 || $slot > 26 || $slot < 0) {
             return $transaction->discard();
         }
 
-        if ($slot === 27) {
+        if ($this->countdownActive) {
+            $owner->sendMessage("§cYou cannot modify items while the trade countdown is active. You can only unconfirm.");
             return $transaction->discard();
         }
 
-        if ($slot < 0 || $slot > 26) {
-            return $transaction->discard();
-        }
-
-        $item = clone $transaction->getOut()->getItem(0);
+        $item = clone $transaction->getOut();
 
         if ($item->isNull()) {
             unset($offered[$slot]);
@@ -171,19 +190,57 @@ class TradeSession {
 
         $this->confirmed1 = false;
         $this->confirmed2 = false;
-
-        $pane = StringToItemParser::getInstance()->parse("red_stained_glass_pane")->setCustomName("§c");
-        $this->menu1->getInventory()->setItem(27, $pane);
-        $this->menu2->getInventory()->setItem(27, $pane);
+        $this->updateConfirmButtons();
+        $this->resetCountdownState();
 
         return $transaction->continue();
     }
 
-    private function setConfirmed(Player $player): void {
-        if ($player === $this->p1) $this->confirmed1 = true;
-        else $this->confirmed2 = true;
-        $player->sendMessage("§aYou confirmed. Waiting for the other player...");
-        if ($this->confirmed1 && $this->confirmed2) $this->complete();
+    private function startCountdown(): void {
+        $this->countdownActive = true;
+        $this->p1->sendMessage("§aBoth players confirmed. Trade will complete in 3 seconds. You can unconfirm to cancel.");
+        $this->p2->sendMessage("§aBoth players confirmed. Trade will complete in 3 seconds. You can unconfirm to cancel.");
+
+        $count = 3;
+        $plugin = $this->plugin;
+
+        $this->countdownTaskId = $plugin->getScheduler()->scheduleRepeatingTask(new class($this, $count) extends Task {
+            private TradeSession $session;
+            private int $countdown;
+
+            public function __construct(TradeSession $session, int $countdown) {
+                $this->session = $session;
+                $this->countdown = $countdown;
+            }
+
+            public function onRun(): void {
+                if ($this->countdown <= 0) {
+                    $this->session->complete();
+                    $this->session->countdownActive = false;
+                    $this->session->countdownTaskId = null;
+                    $this->getHandler()->cancel();
+                    return;
+                }
+                $this->session->p1->sendMessage("§eCompleting trade in {$this->countdown}...");
+                $this->session->p2->sendMessage("§eCompleting trade in {$this->countdown}...");
+                $this->countdown--;
+            }
+        }, 20);
+    }
+
+    private function countdownCancel(): void {
+        if ($this->countdownActive && $this->countdownTaskId !== null) {
+            $this->plugin->getScheduler()->cancelTask($this->countdownTaskId);
+            $this->countdownActive = false;
+            $this->countdownTaskId = null;
+            $this->p1->sendMessage("§cTrade countdown cancelled.");
+            $this->p2->sendMessage("§cTrade countdown cancelled.");
+        }
+    }
+
+    private function resetCountdownState(): void {
+        $this->countdownActive = false;
+        $this->countdownTaskId = null;
     }
 
     public function complete(): void {
@@ -191,18 +248,19 @@ class TradeSession {
         foreach ($this->offered2 as $item) $this->p1->getInventory()->addItem($item);
         $this->p1->sendMessage("§aTrade completed successfully.");
         $this->p2->sendMessage("§aTrade completed successfully.");
-        $this->menu1->getPlayer()->removeCurrentWindow();
-        $this->menu2->getPlayer()->removeCurrentWindow();
+        $this->menu1->getInventory()->getHolder()->removeCurrentWindow();
+        $this->menu2->getInventory()->getHolder()->removeCurrentWindow();
         $this->plugin->endSession($this);
     }
 
     public function cancel(string $reason): void {
+        $this->countdownCancel();
         foreach ($this->offered1 as $item) $this->p1->getInventory()->addItem($item);
         foreach ($this->offered2 as $item) $this->p2->getInventory()->addItem($item);
         $this->p1->sendMessage("§cTrade canceled ({$reason}). Items returned.");
         $this->p2->sendMessage("§cTrade canceled ({$reason}). Items returned.");
-        $this->menu1->getPlayer()->removeCurrentWindow();
-        $this->menu2->getPlayer()->removeCurrentWindow();
+        $this->menu1->getInventory()->getHolder()->removeCurrentWindow();
+        $this->menu2->getInventory()->getHolder()->removeCurrentWindow();
         $this->plugin->endSession($this);
     }
 
