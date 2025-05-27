@@ -1,0 +1,12 @@
+name: TradeUI
+version: 1.0.0
+main: leowascoding\tradeui\TradeUI
+api: 5.0.0
+commands:
+  trade:
+    description: Request a trade with a nearby player
+    usage: "/trade <player>"
+    permission: tradeui.command
+permissions:
+  tradeui.command:
+    default: true
