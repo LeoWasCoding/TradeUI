@@ -265,8 +265,8 @@ class TradeSession {
         }
         $this->p1->sendMessage("§aTrade completed successfully.");
         $this->p2->sendMessage("§aTrade completed successfully.");
-        $this->p1->removeWindow($this->menu1->getInventory());
-        $this->p2->removeWindow($this->menu2->getInventory());
+        $this->p1->removeCurrentWindow($this->menu1->getInventory());
+        $this->p2->$player->removeCurrentWindow($this->menu2->getInventory());
         $this->plugin->endSession($this);
     }
 
@@ -280,8 +280,8 @@ class TradeSession {
         }
         $this->p1->sendMessage("§cTrade canceled ({$reason}). Items returned.");
         $this->p2->sendMessage("§cTrade canceled ({$reason}). Items returned.");
-        $this->p1->removeWindow($this->menu1->getInventory());
-        $this->p2->removeWindow($this->menu2->getInventory());
+        $this->p1->removeCurrentWindow($this->menu1->getInventory());
+        $this->p2->removeCurrentWindow($this->menu2->getInventory());
         $this->plugin->endSession($this);
     }
 }
