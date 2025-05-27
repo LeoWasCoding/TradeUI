@@ -266,7 +266,7 @@ class TradeSession {
         $this->p1->sendMessage("§aTrade completed successfully.");
         $this->p2->sendMessage("§aTrade completed successfully.");
         $this->p1->removeCurrentWindow();
-        $this->p2->$player->removeCurrentWindow();
+        $this->p2->removeCurrentWindow();
         $this->plugin->endSession($this);
     }
 
