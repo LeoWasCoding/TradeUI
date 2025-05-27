@@ -8,14 +8,12 @@ use pocketmine\utils\Config;
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
 use pocketmine\Server;
-use pocketmine\utils\TextFormat;
 use muqsit\invmenu\InvMenu;
 use muqsit\invmenu\InvMenuHandler;
 use muqsit\invmenu\transaction\InvMenuTransaction;
 use muqsit\invmenu\transaction\InvMenuTransactionResult;
 use pocketmine\event\Listener;
 use pocketmine\event\inventory\InventoryCloseEvent;
-use pocketmine\item\ItemFactory;
 use pocketmine\item\StringToItemParser;
 use pocketmine\scheduler\Task;
 
@@ -113,8 +111,9 @@ class TradeSession {
     public function open(): void {
         $this->menu1->send($this->p1);
         $this->menu2->send($this->p2);
-        $this->p1->sendMessage("§aTrade request accepted. Add items and click the green wool to confirm.");
-        $this->p2->sendMessage("§aTrade request accepted. Add items and click the green wool to confirm.");
+
+        $this->p1->sendMessage("§aTrade request accepted. Add items to the left side and click the green wool to confirm.");
+        $this->p2->sendMessage("§aTrade request accepted. Add items to the left side and click the green wool to confirm.");
 
         $timeout = (int)$this->plugin->getConfig()->get("trade-timeout", 600) * 20;
         $this->plugin->getScheduler()->scheduleDelayedTask(new class($this) extends Task {
@@ -124,24 +123,34 @@ class TradeSession {
         }, $timeout);
 
         $confirmItem = StringToItemParser::getInstance()->parse("lime_wool")->setCustomName("§aConfirm trade");
-        $this->menu1->getInventory()->setItem($this->confirmSlot, $confirmItem);
-        $this->menu2->getInventory()->setItem($this->confirmSlot, $confirmItem);
+        $this->menu1->getInventory()->setItem(53, $confirmItem);
+        $this->menu2->getInventory()->setItem(53, $confirmItem);
+
+        $pane = StringToItemParser::getInstance()->parse("red_stained_glass_pane")->setCustomName("§c");
+        $this->menu1->getInventory()->setItem(27, $pane);
+        $this->menu2->getInventory()->setItem(27, $pane);
+
+        for ($i = 0; $i <= 26; $i++) {
+            $this->menu1->getInventory()->clear($i);
+            $this->menu2->getInventory()->clear($i);
+            $this->menu1->getInventory()->clear($i + 28);
+            $this->menu2->getInventory()->clear($i + 28);
+        }
     }
 
     private function onInventoryClick(InvMenuTransaction $transaction, Player $owner, Player $other, array &$offered): InvMenuTransactionResult {
         $slot = $transaction->getAction()->getSlot();
 
-        if ($slot === $this->confirmSlot) {
+        if ($slot === 53) {
             $this->setConfirmed($owner);
             return $transaction->discard();
         }
 
-        if (($owner === $this->p1 && $transaction->getInventory() !== $this->menu1->getInventory()) ||
-            ($owner === $this->p2 && $transaction->getInventory() !== $this->menu2->getInventory())) {
+        if ($slot === 27) {
             return $transaction->discard();
         }
 
-        if ($slot < 0 || $slot > 52) {
+        if ($slot < 0 || $slot > 26) {
             return $transaction->discard();
         }
 
@@ -153,15 +162,19 @@ class TradeSession {
             $offered[$slot] = $item;
         }
 
-        $targetInventory = $other === $this->p1 ? $this->menu1->getInventory() : $this->menu2->getInventory();
+        $targetInventory = ($other === $this->p1) ? $this->menu1->getInventory() : $this->menu2->getInventory();
         if ($item->isNull()) {
-            $targetInventory->clear($slot);
+            $targetInventory->clear($slot + 28);
         } else {
-            $targetInventory->setItem($slot, $item);
+            $targetInventory->setItem($slot + 28, $item);
         }
 
         $this->confirmed1 = false;
         $this->confirmed2 = false;
+
+        $pane = StringToItemParser::getInstance()->parse("red_stained_glass_pane")->setCustomName("§c");
+        $this->menu1->getInventory()->setItem(27, $pane);
+        $this->menu2->getInventory()->setItem(27, $pane);
 
         return $transaction->continue();
     }
