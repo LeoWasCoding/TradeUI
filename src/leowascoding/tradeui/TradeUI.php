@@ -16,6 +16,7 @@ use pocketmine\event\Listener;
 use pocketmine\event\inventory\InventoryCloseEvent;
 use pocketmine\item\StringToItemParser;
 use pocketmine\scheduler\Task;
+use pocketmine\scheduler\TaskHandler;
 
 class TradeUI extends PluginBase implements Listener {
     private Config $config;
@@ -93,7 +94,7 @@ class TradeSession {
     private bool $confirmed1 = false;
     private bool $confirmed2 = false;
     private bool $countdownActive = false;
-    private ?int $countdownTaskId = null;
+    private ?TaskHandler $countdownTaskHandler = null;
 
     public function __construct(TradeUI $plugin, Player $p1, Player $p2) {
         $this->plugin = $plugin;
@@ -204,7 +205,7 @@ class TradeSession {
         $count = 3;
         $plugin = $this->plugin;
 
-        $this->countdownTaskId = $plugin->getScheduler()->scheduleRepeatingTask(new class($this, $count) extends Task {
+        $this->countdownTaskHandler = $plugin->getScheduler()->scheduleRepeatingTask(new class($this, $count) extends Task {
             private TradeSession $session;
             private int $countdown;
 
@@ -216,23 +217,22 @@ class TradeSession {
             public function onRun(): void {
                 if ($this->countdown <= 0) {
                     $this->session->complete();
-                    $this->session->countdownActive = false;
-                    $this->session->countdownTaskId = null;
+                    $this->session->setCountdownInactive();
                     $this->getHandler()->cancel();
                     return;
                 }
-                $this->session->p1->sendMessage("§eCompleting trade in {$this->countdown}...");
-                $this->session->p2->sendMessage("§eCompleting trade in {$this->countdown}...");
+                $this->session->getPlayer1()->sendMessage("§eCompleting trade in {$this->countdown}...");
+                $this->session->getPlayer2()->sendMessage("§eCompleting trade in {$this->countdown}...");
                 $this->countdown--;
             }
         }, 20);
     }
 
     private function countdownCancel(): void {
-        if ($this->countdownActive && $this->countdownTaskId !== null) {
-            $this->plugin->getScheduler()->cancelTask($this->countdownTaskId);
+        if ($this->countdownActive && $this->countdownTaskHandler !== null) {
+            $this->countdownTaskHandler->cancel();
             $this->countdownActive = false;
-            $this->countdownTaskId = null;
+            $this->countdownTaskHandler = null;
             $this->p1->sendMessage("§cTrade countdown cancelled.");
             $this->p2->sendMessage("§cTrade countdown cancelled.");
         }
@@ -240,27 +240,48 @@ class TradeSession {
 
     private function resetCountdownState(): void {
         $this->countdownActive = false;
-        $this->countdownTaskId = null;
+        $this->countdownTaskHandler = null;
+    }
+
+    public function setCountdownInactive(): void {
+        $this->countdownActive = false;
+        $this->countdownTaskHandler = null;
+    }
+
+    public function getPlayer1(): Player {
+        return $this->p1;
+    }
+
+    public function getPlayer2(): Player {
+        return $this->p2;
     }
 
     public function complete(): void {
-        foreach ($this->offered1 as $item) $this->p2->getInventory()->addItem($item);
-        foreach ($this->offered2 as $item) $this->p1->getInventory()->addItem($item);
+        foreach ($this->offered1 as $item) {
+            $this->p2->getInventory()->addItem($item);
+        }
+        foreach ($this->offered2 as $item) {
+            $this->p1->getInventory()->addItem($item);
+        }
         $this->p1->sendMessage("§aTrade completed successfully.");
         $this->p2->sendMessage("§aTrade completed successfully.");
-        $this->menu1->getInventory()->getHolder()->removeCurrentWindow();
-        $this->menu2->getInventory()->getHolder()->removeCurrentWindow();
+        $this->p1->removeWindow($this->menu1->getInventory());
+        $this->p2->removeWindow($this->menu2->getInventory());
         $this->plugin->endSession($this);
     }
 
     public function cancel(string $reason): void {
         $this->countdownCancel();
-        foreach ($this->offered1 as $item) $this->p1->getInventory()->addItem($item);
-        foreach ($this->offered2 as $item) $this->p2->getInventory()->addItem($item);
+        foreach ($this->offered1 as $item) {
+            $this->p1->getInventory()->addItem($item);
+        }
+        foreach ($this->offered2 as $item) {
+            $this->p2->getInventory()->addItem($item);
+        }
         $this->p1->sendMessage("§cTrade canceled ({$reason}). Items returned.");
         $this->p2->sendMessage("§cTrade canceled ({$reason}). Items returned.");
-        $this->menu1->getInventory()->getHolder()->removeCurrentWindow();
-        $this->menu2->getInventory()->getHolder()->removeCurrentWindow();
+        $this->p1->removeWindow($this->menu1->getInventory());
+        $this->p2->removeWindow($this->menu2->getInventory());
         $this->plugin->endSession($this);
     }
 
