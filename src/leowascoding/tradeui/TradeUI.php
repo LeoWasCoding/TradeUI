@@ -8,20 +8,19 @@ use pocketmine\utils\Config;
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
 use pocketmine\Server;
-use pocketmine\item\VanillaItems;
+use pocketmine\utils\TextFormat;
 use muqsit\invmenu\InvMenu;
 use muqsit\invmenu\InvMenuHandler;
-use muqsit\invmenu\type\InvMenuTypeIds;
 use muqsit\invmenu\transaction\InvMenuTransaction;
 use muqsit\invmenu\transaction\InvMenuTransactionResult;
 use pocketmine\event\Listener;
 use pocketmine\event\inventory\InventoryCloseEvent;
+use pocketmine\item\ItemFactory;
+use pocketmine\item\StringToItemParser;
 use pocketmine\scheduler\Task;
 
 class TradeUI extends PluginBase implements Listener {
-    /** @var Config */
     private Config $config;
-    /** @var array<string, TradeSession> */
     private array $sessions = [];
 
     public function onEnable(): void {
@@ -48,7 +47,7 @@ class TradeUI extends PluginBase implements Listener {
             $sender->sendMessage("§cPlayer not found.");
             return true;
         }
-
+        
         if ($target->getName() === $sender->getName()) {
             $sender->sendMessage("§cYou cannot trade with yourself.");
             return true;
@@ -102,17 +101,13 @@ class TradeSession {
         $this->p1 = $p1;
         $this->p2 = $p2;
 
-        $this->menu1 = InvMenu::create(InvMenuTypeIds::DOUBLE_CHEST);
-        $this->menu2 = InvMenu::create(InvMenuTypeIds::DOUBLE_CHEST);
+        $this->menu1 = InvMenu::create(InvMenu::TYPE_DOUBLE_CHEST);
+        $this->menu2 = InvMenu::create(InvMenu::TYPE_DOUBLE_CHEST);
         $this->menu1->setName("Trade with {$p2->getName()}");
         $this->menu2->setName("Trade with {$p1->getName()}");
 
-        $this->menu1->setListener(function(InvMenuTransaction $transaction) {
-            return $this->onInventoryClick($transaction, $this->p1, $this->p2, $this->offered1);
-        });
-        $this->menu2->setListener(function(InvMenuTransaction $transaction) {
-            return $this->onInventoryClick($transaction, $this->p2, $this->p1, $this->offered2);
-        });
+        $this->menu1->setListener(fn(InvMenuTransaction $t) => $this->onInventoryClick($t, $this->p1, $this->p2, $this->offered1));
+        $this->menu2->setListener(fn(InvMenuTransaction $t) => $this->onInventoryClick($t, $this->p2, $this->p1, $this->offered2));
     }
 
     public function open(): void {
@@ -124,52 +119,63 @@ class TradeSession {
         $timeout = (int)$this->plugin->getConfig()->get("trade-timeout", 600) * 20;
         $this->plugin->getScheduler()->scheduleDelayedTask(new class($this) extends Task {
             private TradeSession $session;
-            public function __construct(TradeSession $session) {
-                $this->session = $session;
-            }
-            public function onRun(): void {
-                $this->session->cancel("timed out");
-            }
+            public function __construct(TradeSession $session) { $this->session = $session; }
+            public function onRun(): void { $this->session->cancel("timed out"); }
         }, $timeout);
 
-        $confirmItem = VanillaItems::WOOL()->setMeta(5)->setCustomName("§aConfirm trade");
+        $confirmItem = StringToItemParser::getInstance()->parse("lime_wool")->setCustomName("§aConfirm trade");
         $this->menu1->getInventory()->setItem($this->confirmSlot, $confirmItem);
         $this->menu2->getInventory()->setItem($this->confirmSlot, $confirmItem);
     }
 
     private function onInventoryClick(InvMenuTransaction $transaction, Player $owner, Player $other, array &$offered): InvMenuTransactionResult {
         $slot = $transaction->getAction()->getSlot();
+
         if ($slot === $this->confirmSlot) {
             $this->setConfirmed($owner);
             return $transaction->discard();
         }
+
+        if (($owner === $this->p1 && $transaction->getInventory() !== $this->menu1->getInventory()) ||
+            ($owner === $this->p2 && $transaction->getInventory() !== $this->menu2->getInventory())) {
+            return $transaction->discard();
+        }
+
         if ($slot < 0 || $slot > 52) {
             return $transaction->discard();
         }
-        $item = $transaction->getOut()->getItem(0);
-        $offered[$slot] = clone $item;
+
+        $item = clone $transaction->getOut()->getItem(0);
+
+        if ($item->isNull()) {
+            unset($offered[$slot]);
+        } else {
+            $offered[$slot] = $item;
+        }
+
+        $targetInventory = $other === $this->p1 ? $this->menu1->getInventory() : $this->menu2->getInventory();
+        if ($item->isNull()) {
+            $targetInventory->clear($slot);
+        } else {
+            $targetInventory->setItem($slot, $item);
+        }
+
+        $this->confirmed1 = false;
+        $this->confirmed2 = false;
+
         return $transaction->continue();
     }
 
     private function setConfirmed(Player $player): void {
-        if ($player === $this->p1) {
-            $this->confirmed1 = true;
-        } else {
-            $this->confirmed2 = true;
-        }
+        if ($player === $this->p1) $this->confirmed1 = true;
+        else $this->confirmed2 = true;
         $player->sendMessage("§aYou confirmed. Waiting for the other player...");
-        if ($this->confirmed1 && $this->confirmed2) {
-            $this->complete();
-        }
+        if ($this->confirmed1 && $this->confirmed2) $this->complete();
     }
 
     public function complete(): void {
-        foreach ($this->offered1 as $item) {
-            $this->p2->getInventory()->addItem($item);
-        }
-        foreach ($this->offered2 as $item) {
-            $this->p1->getInventory()->addItem($item);
-        }
+        foreach ($this->offered1 as $item) $this->p2->getInventory()->addItem($item);
+        foreach ($this->offered2 as $item) $this->p1->getInventory()->addItem($item);
         $this->p1->sendMessage("§aTrade completed successfully.");
         $this->p2->sendMessage("§aTrade completed successfully.");
         $this->menu1->getPlayer()->removeCurrentWindow();
@@ -178,12 +184,8 @@ class TradeSession {
     }
 
     public function cancel(string $reason): void {
-        foreach ($this->offered1 as $item) {
-            $this->p1->getInventory()->addItem($item);
-        }
-        foreach ($this->offered2 as $item) {
-            $this->p2->getInventory()->addItem($item);
-        }
+        foreach ($this->offered1 as $item) $this->p1->getInventory()->addItem($item);
+        foreach ($this->offered2 as $item) $this->p2->getInventory()->addItem($item);
         $this->p1->sendMessage("§cTrade canceled ({$reason}). Items returned.");
         $this->p2->sendMessage("§cTrade canceled ({$reason}). Items returned.");
         $this->menu1->getPlayer()->removeCurrentWindow();
@@ -191,11 +193,6 @@ class TradeSession {
         $this->plugin->endSession($this);
     }
 
-    public function getPlayer1(): Player {
-        return $this->p1;
-    }
-
-    public function getPlayer2(): Player {
-        return $this->p2;
-    }
+    public function getPlayer1(): Player { return $this->p1; }
+    public function getPlayer2(): Player { return $this->p2; }
 }
