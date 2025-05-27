@@ -1,7 +1,7 @@
 name: TradeUI
-version: 5.3.0
+version: 1.0.0
 main: leowascoding\tradeui\TradeUI
-api: 5.0.0
+api: 5.3.0
 commands:
   trade:
     description: Request a trade with a nearby player
