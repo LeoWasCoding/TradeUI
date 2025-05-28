@@ -19,16 +19,12 @@ use jojoe77777\FormAPI\ModalForm;
 
 class TradeUI extends PluginBase implements Listener {
 
-    /** @var Config */
     private Config $config;
 
-    /** @var Config */
     private Config $messages;
 
-    /** @var array<string, string> */
     private array $pendingRequests = [];
 
-    /** @var array<string, TradeSession> */
     private array $sessions = [];
 
     public function onEnable(): void {
@@ -47,7 +43,6 @@ class TradeUI extends PluginBase implements Listener {
         $this->getServer()->getPluginManager()->registerEvents($this, $this);
     }
 
-    /** @return array<string, string> */
     public function getPendingRequests(): array {
         return $this->pendingRequests;
     }
