@@ -4,6 +4,7 @@ namespace leowascoding\tradeui;
 
 use pocketmine\plugin\PluginBase;
 use pocketmine\player\Player;
+use pocketmine\event\player\PlayerQuitEvent;
 use pocketmine\utils\Config;
 use pocketmine\command\Command;
 use pocketmine\command\CommandSender;
@@ -21,7 +22,7 @@ use pocketmine\scheduler\TaskHandler;
 class TradeUI extends PluginBase implements Listener {
     private Config $config;
     private array $sessions = [];
-    private array $pendingRequests = [];
+    protected array $pendingRequests = [];
 
     public function onEnable(): void {
         if (!InvMenuHandler::isRegistered()) {
@@ -82,11 +83,12 @@ class TradeUI extends PluginBase implements Listener {
         $this->getScheduler()->scheduleDelayedTask(new class($this, $key) extends Task {
             private TradeUI $plugin;
             private string $key;
-            public function __construct(TradeUI $plugin, string $key) { $this->plugin = $plugin; $this->key = $key; }
+            public function __construct(TradeUI $plugin, string $key) {
+                $this->plugin = $plugin;
+                $this->key = $key;
+            }
             public function onRun(): void {
-                if (isset($this->plugin->pendingRequests[$this->key]) && time() >= $this->plugin->pendingRequests[$this->key]) {
-                    unset($this->plugin->pendingRequests[$this->key]);
-                }
+                $this->plugin->expireRequest($this->key);
             }
         }, 20 * 30);
     }
@@ -109,6 +111,12 @@ class TradeUI extends PluginBase implements Listener {
             $target->sendMessage("§c{$sender->getName()} denied your trade request.");
         } else {
             $sender->sendMessage("§cNo trade request from {$target->getName()}.");
+        }
+    }
+
+    public function expireRequest(string $key): void {
+        if (isset($this->pendingRequests[$key]) && time() >= $this->pendingRequests[$key]) {
+            unset($this->pendingRequests[$key]);
         }
     }
 
