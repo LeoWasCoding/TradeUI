@@ -182,7 +182,7 @@ class TradeUI extends PluginBase implements Listener {
             $requesterName = $incoming[$data] ?? null;
             if ($requesterName === null) return;
     
-            $modal = new ModalForm(function(Player $player, ?bool $choice) use ($requesterName) {
+            $modal = new ModalForm(function(Player $player, ?bool $choice) {
                 if ($choice === null) return;
     
                 $action = $choice ? 'accept' : 'deny';
@@ -278,21 +278,11 @@ class TradeUI extends PluginBase implements Listener {
             return;
         }
         if ($action === 'deny') {
-            // Cancel cooldown/session if any
-            if (isset($this->sessions[$name])) {
-                $this->sessions[$name]->cancelCountdown();
-                unset($this->sessions[$name]);
-            }
-            if (isset($this->sessions[$requesterName])) {
-                $this->sessions[$requesterName]->cancelCountdown();
-                unset($this->sessions[$requesterName]);
-            }
             $sender->sendMessage($this->msg("denyReceiver", ["requester" => $requesterName]));
             $requester->sendMessage($this->msg("denyRequester", ["target" => $name]));
             return;
         }
-    
-        // accept
+
         $radius = (float)$this->config->get('trade-radius', 10);
         if ($sender->getPosition()->distance($requester->getPosition()) > $radius) {
             $sender->sendMessage($this->msg("tooFarAccept"));
@@ -303,7 +293,7 @@ class TradeUI extends PluginBase implements Listener {
             $sender->sendMessage($this->msg("alreadyInSession"));
             return;
         }
-    
+
         $session = new TradeSession($this, $requester, $sender);
         $this->sessions[$name] = $session;
         $this->sessions[$requesterName] = $session;
@@ -364,7 +354,8 @@ class TradeSession {
     }
 
     public function open(): void {
-        $player->removeCurrentWindow();
+        $p1->removeCurrentWindow();
+        $p2->removeCurrentWindow();
         $pane = StringToItemParser::getInstance()->parse('red_stained_glass_pane')->setCustomName('§c');
         foreach ($this->dividerSlots as $slot) {
             $this->menu1->getInventory()->setItem($slot, $pane);
