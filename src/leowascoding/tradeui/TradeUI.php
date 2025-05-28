@@ -39,6 +39,10 @@ class TradeUI extends PluginBase implements Listener {
         $this->messages = new Config($this->getDataFolder() . "messages.yml", Config::YAML);
     }
 
+    public function getPendingRequests(): array {
+        return $this->pendingRequests;
+    }
+    
     public function onCommand(CommandSender $sender, Command $command, string $label, array $args): bool {
         if (!$sender instanceof Player) {
             return false;
