@@ -21,6 +21,7 @@ use pocketmine\scheduler\TaskHandler;
 class TradeUI extends PluginBase implements Listener {
     private Config $config;
     private array $sessions = [];
+    private array $pendingRequests = [];
 
     public function onEnable(): void {
         if (!InvMenuHandler::isRegistered()) {
@@ -36,38 +37,95 @@ class TradeUI extends PluginBase implements Listener {
         if (!$sender instanceof Player) return false;
         if (strtolower($command->getName()) !== 'trade') return false;
 
-        if (count($args) < 1) {
-            $sender->sendMessage("§cUsage: /trade <player>");
+        if (count($args) < 2) {
+            $sender->sendMessage("§cUsage: /trade <request|accept|deny> <player>");
             return true;
         }
 
-        $target = Server::getInstance()->getPlayerExact($args[0]);
+        [$sub, $name] = [$args[0], $args[1]];
+        $target = Server::getInstance()->getPlayerExact($name);
         if (!$target instanceof Player || !$target->isOnline()) {
             $sender->sendMessage("§cPlayer not found.");
             return true;
         }
-        
-        if ($target->getName() === $sender->getName()) {
+        if ($sender->getName() === $target->getName()) {
             $sender->sendMessage("§cYou cannot trade with yourself.");
             return true;
         }
 
-        $radius = (float)$this->config->get("trade-radius", 10);
-        if ($sender->getPosition()->distance($target->getPosition()) > $radius) {
-            $sender->sendMessage("§cPlayer is too far. Get within $radius blocks.");
-            return true;
+        switch (strtolower($sub)) {
+            case 'request':
+                $this->handleRequest($sender, $target);
+                break;
+            case 'accept':
+                $this->handleAccept($sender, $target);
+                break;
+            case 'deny':
+                $this->handleDeny($sender, $target);
+                break;
+            default:
+                $sender->sendMessage("§cUnknown subcommand. Use request/accept/deny.");
         }
-
-        if (isset($this->sessions[$sender->getName()]) || isset($this->sessions[$target->getName()])) {
-            $sender->sendMessage("§cEither you or the target is already in a trade.");
-            return true;
-        }
-
-        $session = new TradeSession($this, $sender, $target);
-        $this->sessions[$sender->getName()] = $session;
-        $this->sessions[$target->getName()] = $session;
-        $session->open();
         return true;
+    }
+
+    private function handleRequest(Player $sender, Player $target): void {
+        $key = strtolower($sender->getName()) . '>' . strtolower($target->getName());
+        if (isset($this->pendingRequests[$key])) {
+            $sender->sendMessage("§cYou have already sent a request to {$target->getName()}.");
+            return;
+        }
+        $expires = time() + 30;
+        $this->pendingRequests[$key] = $expires;
+        $sender->sendMessage("§eTrade request sent to {$target->getName()}. Expires in 30s.");
+        $target->sendMessage("§e{$sender->getName()} wants to trade with you. Type /trade accept {$sender->getName()} or /trade deny {$sender->getName()}.");
+        $this->getScheduler()->scheduleDelayedTask(new class($this, $key) extends Task {
+            private TradeUI $plugin;
+            private string $key;
+            public function __construct(TradeUI $plugin, string $key) { $this->plugin = $plugin; $this->key = $key; }
+            public function onRun(): void {
+                if (isset($this->plugin->pendingRequests[$this->key]) && time() >= $this->plugin->pendingRequests[$this->key]) {
+                    unset($this->plugin->pendingRequests[$this->key]);
+                }
+            }
+        }, 20 * 30);
+    }
+
+    private function handleAccept(Player $sender, Player $target): void {
+        $key = strtolower($target->getName()) . '>' . strtolower($sender->getName());
+        if (!isset($this->pendingRequests[$key])) {
+            $sender->sendMessage("§cNo trade request from {$target->getName()}.");
+            return;
+        }
+        unset($this->pendingRequests[$key]);
+        $this->startSession($sender, $target);
+    }
+
+    private function handleDeny(Player $sender, Player $target): void {
+        $key = strtolower($target->getName()) . '>' . strtolower($sender->getName());
+        if (isset($this->pendingRequests[$key])) {
+            unset($this->pendingRequests[$key]);
+            $sender->sendMessage("§cTrade request from {$target->getName()} denied.");
+            $target->sendMessage("§c{$sender->getName()} denied your trade request.");
+        } else {
+            $sender->sendMessage("§cNo trade request from {$target->getName()}.");
+        }
+    }
+
+    private function startSession(Player $p1, Player $p2): void {
+        $radius = (float)$this->config->get("trade-radius", 10);
+        if ($p1->getPosition()->distance($p2->getPosition()) > $radius) {
+            $p1->sendMessage("§cPlayer is too far. Get within $radius blocks.");
+            return;
+        }
+        if (isset($this->sessions[$p1->getName()]) || isset($this->sessions[$p2->getName()])) {
+            $p1->sendMessage("§cEither you or the target is already in a trade.");
+            return;
+        }
+        $session = new TradeSession($this, $p1, $p2);
+        $this->sessions[$p1->getName()] = $session;
+        $this->sessions[$p2->getName()] = $session;
+        $session->open();
     }
 
     public function endSession(TradeSession $session): void {
@@ -79,6 +137,13 @@ class TradeUI extends PluginBase implements Listener {
         $player = $event->getPlayer();
         if ($player instanceof Player && isset($this->sessions[$player->getName()])) {
             $this->sessions[$player->getName()]->cancel("closed inventory");
+        }
+    }
+
+    public function onPlayerQuit(PlayerQuitEvent $event): void {
+        $player = $event->getPlayer();
+        if (isset($this->sessions[$player->getName()])) {
+            $this->sessions[$player->getName()]->cancel("player quit");
         }
     }
 }
@@ -257,6 +322,18 @@ class TradeSession {
     }
 
     public function complete(): void {
+        foreach ($this->offered1 as $item) {
+            if (!$this->p2->getInventory()->canAddItem($item)) {
+                $this->cancel("inventory full");
+                return;
+            }
+        }
+        foreach ($this->offered2 as $item) {
+            if (!$this->p1->getInventory()->canAddItem($item)) {
+                $this->cancel("inventory full");
+                return;
+            }
+        }
         foreach ($this->offered1 as $item) {
             $this->p2->getInventory()->addItem($item);
         }
