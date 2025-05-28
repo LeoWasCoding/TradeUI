@@ -71,11 +71,23 @@ class TradeUI extends PluginBase implements Listener {
     }
     
     public function onCommand(CommandSender $sender, Command $command, string $label, array $args): bool {
-        if (!$sender instanceof Player) {
-            return false;
-        }
         if (strtolower($command->getName()) !== 'trade') {
             return false;
+        }
+    
+        if (isset($args[0]) && strtolower($args[0]) === 'reload') {
+            if (!$sender->hasPermission('tradeui.reload')) {
+                $sender->sendMessage("§cYou do not have permission to reload the plugin.");
+                return true;
+            }
+            $this->reloadConfig();
+            $sender->sendMessage("§aTradeUI configuration reloaded.");
+            return true;
+        }
+    
+        if (!$sender instanceof Player) {
+            $sender->sendMessage("§cOnly players can use this command.");
+            return true;
         }
     
         if (empty($args)) {
@@ -86,7 +98,7 @@ class TradeUI extends PluginBase implements Listener {
         $action = strtolower($args[0]);
         if (in_array($action, ['accept', 'deny'], true)) {
             $this->handleResponse($sender, $action);
-
+    
             if ($action === "deny") {
                 if (isset($this->sessions[$sender->getName()])) {
                     $session = $this->sessions[$sender->getName()];
@@ -96,7 +108,7 @@ class TradeUI extends PluginBase implements Listener {
     
             return true;
         }
-
+    
         $allowedWorlds = $this->getConfig()->get("allowed-worlds", []);
         $senderWorld = $sender->getWorld()->getFolderName();
     
