@@ -43,6 +43,22 @@ class TradeUI extends PluginBase implements Listener {
         return $this->pendingRequests;
     }
     
+    public function hasPendingRequest(string $target, string $requester): bool {
+        return isset($this->pendingRequests[$target]) && $this->pendingRequests[$target] === $requester;
+    }
+    
+    public function removePendingRequest(string $target): void {
+        unset($this->pendingRequests[$target]);
+    }
+    
+    public function msg(string $key, array $vars = []): string {
+        $message = $this->messages->get($key, "");
+        foreach ($vars as $k => $v) {
+            $message = str_replace("{" . $k . "}", (string)$v, $message);
+        }
+        return str_replace("&", "§", $message);
+    }
+    
     public function onCommand(CommandSender $sender, Command $command, string $label, array $args): bool {
         if (!$sender instanceof Player) {
             return false;
@@ -58,15 +74,6 @@ class TradeUI extends PluginBase implements Listener {
 
         $this->handleRequest($sender, $args);
         return true;
-    }
-
-    private function msg(string $key, array $vars = []): string {
-        $message = $this->messages->get($key, "");
-        foreach ($vars as $k => $v) {
-            $message = str_replace("{" . $k . "}", (string)$v, $message);
-        }
-        // convert & color codes to § cuz its easier to use &..
-        return str_replace("&", "§", $message);
     }
 
     private function handleRequest(Player $sender, array $args): void {
@@ -114,13 +121,12 @@ class TradeUI extends PluginBase implements Listener {
             }
 
             public function onRun(): void {
-                if (isset($this->plugin->pendingRequests[$this->target])
-                    && $this->plugin->pendingRequests[$this->target] === $this->requester) {
-                    unset($this->plugin->pendingRequests[$this->target]);
+                if ($this->plugin->hasPendingRequest($this->target, $this->requester)) {
+                    $this->plugin->removePendingRequest($this->target);
                     $t = Server::getInstance()->getPlayerExact($this->target);
                     $r = Server::getInstance()->getPlayerExact($this->requester);
-                    if($t) $t->sendMessage($this->msg("requestExpiredTarget", ["requester" => $this->requester]));
-                    if($r) $r->sendMessage($this->msg("requestExpiredRequester", ["target" => $this->target]));
+                    if ($t) $t->sendMessage($this->plugin->msg("requestExpiredTarget", ["requester" => $this->requester]));
+                    if ($r) $r->sendMessage($this->plugin->msg("requestExpiredRequester", ["target" => $this->target]));
                 }
             }
         }, $timeoutTicks);
