@@ -21,7 +21,7 @@ use pocketmine\scheduler\TaskHandler;
 class TradeUI extends PluginBase implements Listener {
     private Config $config;
     private $messages;
-    private array $pendingRequests = [];
+    protected array $pendingRequests = [];
     private array $sessions = [];
 
     public function onEnable(): void {
