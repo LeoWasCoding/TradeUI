@@ -65,6 +65,14 @@ class TradeUI extends PluginBase implements Listener {
         return str_replace("&", "§", $message);
     }
 
+    public function getPendingRequests(): array {
+        return $this->pendingRequests;
+    }
+    
+    public function removePendingRequest(string $target): void {
+        unset($this->pendingRequests[$target]);
+    }
+
     private function handleRequest(Player $sender, array $args): void {
         if (count($args) < 1) {
             $sender->sendMessage($this->msg("usage"));
@@ -110,13 +118,14 @@ class TradeUI extends PluginBase implements Listener {
             }
 
             public function onRun(): void {
-                if (isset($this->plugin->pendingRequests[$this->target])
-                    && $this->plugin->pendingRequests[$this->target] === $this->requester) {
-                    unset($this->plugin->pendingRequests[$this->target]);
+                if (($this->plugin->getPendingRequest($this->target) ?? null) === $this->requester) {
+                    $this->plugin->removePendingRequest($this->target);
+            
                     $t = Server::getInstance()->getPlayerExact($this->target);
                     $r = Server::getInstance()->getPlayerExact($this->requester);
-                    if($t) $t->sendMessage($this->msg("requestExpiredTarget", ["requester" => $this->requester]));
-                    if($r) $r->sendMessage($this->msg("requestExpiredRequester", ["target" => $this->target]));
+            
+                    if ($t) $t->sendMessage($this->plugin->msg("requestExpiredTarget", ["requester" => $this->requester]));
+                    if ($r) $r->sendMessage($this->plugin->msg("requestExpiredRequester", ["target" => $this->target]));
                 }
             }
         }, $timeoutTicks);
