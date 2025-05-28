@@ -10,3 +10,5 @@ commands:
 permissions:
   tradeui.command:
     default: true
+  tradeui.reload:
+    default: op
