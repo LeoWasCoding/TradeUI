@@ -27,6 +27,7 @@ class TradeUI extends PluginBase implements Listener {
     private $messages;
     private array $pendingRequests = [];
     private array $sessions = [];
+    private array $allowedWorlds;
 
     public function onEnable(): void {
         if (!InvMenuHandler::isRegistered()) {
@@ -37,6 +38,7 @@ class TradeUI extends PluginBase implements Listener {
         $this->saveDefaultConfig();
         $this->config = $this->getConfig();
         $this->getServer()->getPluginManager()->registerEvents($this, $this);
+        $this->allowedWorlds = $this->config->get('allowed-worlds', []);
         // these are the messages.yml
         @mkdir($this->getDataFolder());
         $this->saveResource("messages.yml", false);
