@@ -334,7 +334,7 @@ class TradeSession {
             $confirmed = !$confirmed;
             if ($confirmed) {
                 $owner->sendMessage($this->msg("confirmSuccess"));
-                $other->sendMessage($this->msg("confirmSuccess", ["other" => $owner->getName()]));
+                $other->sendMessage($this->msg("otherConfirmed", ["player" => $owner->getName()]));
                 if ($this->confirmed1 && $this->confirmed2) {
                     $this->startCountdown();
                 }
