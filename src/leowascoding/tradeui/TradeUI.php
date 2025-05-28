@@ -21,7 +21,7 @@ use pocketmine\scheduler\TaskHandler;
 class TradeUI extends PluginBase implements Listener {
     private Config $config;
     private $messages;
-    public array $pendingRequests = [];
+    private array $pendingRequests = [];
     private array $sessions = [];
 
     public function onEnable(): void {
@@ -115,8 +115,8 @@ class TradeUI extends PluginBase implements Listener {
                     unset($this->plugin->pendingRequests[$this->target]);
                     $t = Server::getInstance()->getPlayerExact($this->target);
                     $r = Server::getInstance()->getPlayerExact($this->requester);
-                    if($t) $t->sendMessage($this->msg("requestExpiredTarget", ["requester" => $this->requester]));
-                    if($r) $r->sendMessage($this->msg("requestExpiredRequester", ["target" => $this->target]));
+                    if($t) $t->sendMessage($this->plugin->msg("requestExpiredTarget", ["requester" => $this->requester]));
+                    if($r) $r->sendMessage($this->plugin->msg("requestExpiredRequester", ["target" => $this->target]));
                 }
             }
         }, $timeoutTicks);
