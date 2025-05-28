@@ -14,6 +14,7 @@ use muqsit\invmenu\transaction\InvMenuTransaction;
 use muqsit\invmenu\transaction\InvMenuTransactionResult;
 use pocketmine\event\Listener;
 use pocketmine\event\inventory\InventoryCloseEvent;
+use pocketmine\event\player\PlayerDropItemEvent;
 use pocketmine\item\StringToItemParser;
 use pocketmine\scheduler\Task;
 use pocketmine\scheduler\TaskHandler;
@@ -53,6 +54,13 @@ class TradeUI extends PluginBase implements Listener {
     public function removePendingRequest(string $target): void {
         unset($this->pendingRequests[$target]);
     }
+
+    public function onDrop(PlayerDropItemEvent $event): void {
+        $player = $event->getPlayer();
+        if (isset($this->sessions[$player->getName()])) {
+            $event->cancel();
+        }
+    }
     
     public function msg(string $key, array $vars = []): string {
         $message = $this->messages->get($key, "");
@@ -69,17 +77,38 @@ class TradeUI extends PluginBase implements Listener {
         if (strtolower($command->getName()) !== 'trade') {
             return false;
         }
-        
+    
         if (empty($args)) {
             $this->showMainMenu($sender);
             return true;
         }
+    
+        $action = strtolower($args[0]);
+        if (in_array($action, ['accept', 'deny'], true)) {
+            $this->handleResponse($sender, $action);
 
-        if (isset($args[0]) && in_array(strtolower($args[0]), ['accept', 'deny'], true)) {
-            $this->handleResponse($sender, strtolower($args[0]));
+            if ($action === "deny") {
+                if (isset($this->sessions[$sender->getName()])) {
+                    $session = $this->sessions[$sender->getName()];
+                    $session->cancelCountdown();
+                }
+            }
+    
             return true;
         }
 
+        $allowedWorlds = $this->getConfig()->get("allowed-worlds", []);
+        $senderWorld = $sender->getWorld()->getFolderName();
+    
+        $target = $this->getServer()->getPlayerExact($args[0]) ?? $this->getServer()->getPlayerByPrefix($args[0]);
+        if ($target instanceof Player) {
+            $targetWorld = $target->getWorld()->getFolderName();
+            if (!in_array($senderWorld, $allowedWorlds, true) || !in_array($targetWorld, $allowedWorlds, true)) {
+                $sender->sendMessage("§cTrading is not allowed in this world.");
+                return true;
+            }
+        }
+    
         $this->handleRequest($sender, $args);
         return true;
     }
@@ -98,31 +127,43 @@ class TradeUI extends PluginBase implements Listener {
         $form->addButton("Incoming Trades");
         $player->sendForm($form);
     }
-
+    
     private function showRequestForm(Player $player): void {
         $radius = (float)$this->config->get('trade-radius', 10);
+        $allowedWorlds = $this->config->get("allowed-worlds", []);
         $options = [];
+    
+        $playerWorld = $player->getWorld()->getFolderName();
         foreach (Server::getInstance()->getOnlinePlayers() as $p) {
             if ($p->getName() === $player->getName()) continue;
+    
+            $targetWorld = $p->getWorld()->getFolderName();
+            if (!in_array($playerWorld, $allowedWorlds, true) || !in_array($targetWorld, $allowedWorlds, true)) {
+                continue;
+            }
+    
             if ($player->getPosition()->distance($p->getPosition()) <= $radius) {
                 $options[] = $p->getName();
             }
         }
+    
         if (empty($options)) {
             $player->sendMessage($this->msg("noPlayersInRange", ["radius" => $radius]));
             return;
         }
+    
         $form = new CustomForm(function(Player $player, $data) use ($options) {
             if ($data === null) return;
             $name = $options[(int)$data[0]] ?? null;
             if ($name === null) return;
             $this->handleRequest($player, [$name]);
         });
+    
         $form->setTitle("Trade Request");
         $form->addDropdown("Select Player", $options);
         $player->sendForm($form);
     }
-
+    
     private function showIncomingTradesForm(Player $player): void {
         $incoming = [];
         foreach ($this->pendingRequests as $target => $requester) {
@@ -130,24 +171,36 @@ class TradeUI extends PluginBase implements Listener {
                 $incoming[] = $requester;
             }
         }
+    
         if (empty($incoming)) {
             $player->sendMessage($this->msg("noPendingRequests"));
             return;
         }
+    
         $form = new SimpleForm(function(Player $player, ?int $data) use ($incoming) {
             if ($data === null) return;
             $requesterName = $incoming[$data] ?? null;
             if ($requesterName === null) return;
-            $modal = new ModalForm(function(Player $player, ?bool $choice) {
+    
+            $modal = new ModalForm(function(Player $player, ?bool $choice) use ($requesterName) {
                 if ($choice === null) return;
-                $this->handleResponse($player, $choice ? 'accept' : 'deny');
+    
+                $action = $choice ? 'accept' : 'deny';
+    
+                if ($action === 'deny' && isset($this->sessions[$player->getName()])) {
+                    $this->sessions[$player->getName()]->cancelCountdown();
+                }
+    
+                $this->handleResponse($player, $action);
             });
+    
             $modal->setTitle("Trade Request from $requesterName");
             $modal->setContent("Do you want to accept the trade request?");
             $modal->setButton1("Accept");
             $modal->setButton2("Deny");
             $player->sendForm($modal);
         });
+    
         $form->setTitle("Incoming Trades");
         foreach ($incoming as $r) {
             $form->addButton("From $r");
@@ -411,7 +464,7 @@ class TradeSession {
         }, 20);
     }
 
-    private function cancelCountdown(): void {
+    public function cancelCountdown(): void {
         if ($this->countdownActive && $this->countdownHandler !== null) {
             $this->countdownHandler->cancel();
             $this->countdownActive = false;
