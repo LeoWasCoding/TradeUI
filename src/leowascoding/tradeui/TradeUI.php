@@ -354,8 +354,8 @@ class TradeSession {
     }
 
     public function open(): void {
-        $p1->removeCurrentWindow();
-        $p2->removeCurrentWindow();
+        $this->p1->removeCurrentWindow();
+        $this->p2->removeCurrentWindow();
         $pane = StringToItemParser::getInstance()->parse('red_stained_glass_pane')->setCustomName('§c');
         foreach ($this->dividerSlots as $slot) {
             $this->menu1->getInventory()->setItem($slot, $pane);
