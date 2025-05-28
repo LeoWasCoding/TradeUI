@@ -17,6 +17,9 @@ use pocketmine\event\inventory\InventoryCloseEvent;
 use pocketmine\item\StringToItemParser;
 use pocketmine\scheduler\Task;
 use pocketmine\scheduler\TaskHandler;
+use jojoe77777\FormAPI\SimpleForm;
+use jojoe77777\FormAPI\CustomForm;
+use jojoe77777\FormAPI\ModalForm;
 
 class TradeUI extends PluginBase implements Listener {
     private Config $config;
@@ -66,6 +69,11 @@ class TradeUI extends PluginBase implements Listener {
         if (strtolower($command->getName()) !== 'trade') {
             return false;
         }
+        
+        if (empty($args) && $this->formApi !== null) {
+            $this->showMainMenu($sender);
+            return true;
+        }
 
         if (isset($args[0]) && in_array(strtolower($args[0]), ['accept', 'deny'], true)) {
             $this->handleResponse($sender, strtolower($args[0]));
@@ -74,6 +82,80 @@ class TradeUI extends PluginBase implements Listener {
 
         $this->handleRequest($sender, $args);
         return true;
+    }
+
+    private function showMainMenu(Player $player): void {
+        $form = new SimpleForm(function(Player $player, ?int $data) {
+            if ($data === null) return;
+            switch ($data) {
+                case 0:
+                    $this->showRequestForm($player);
+                    break;
+                case 1:
+                    $this->showIncomingTradesForm($player);
+                    break;
+            }
+        });
+        $form->setTitle("Trade Menu");
+        $form->addButton("Request Trade");
+        $form->addButton("Incoming Trades");
+        $player->sendForm($form);
+    }
+
+    private function showRequestForm(Player $player): void {
+        $radius = (float)$this->config->get('trade-radius', 10);
+        $options = [];
+        foreach (Server::getInstance()->getOnlinePlayers() as $p) {
+            if ($p->getName() === $player->getName()) continue;
+            if ($player->getPosition()->distance($p->getPosition()) <= $radius) {
+                $options[] = $p->getName();
+            }
+        }
+        if (empty($options)) {
+            $player->sendMessage($this->msg("noPlayersInRange", ["radius" => $radius]));
+            return;
+        }
+        $form = new CustomForm(function(Player $player, $data) use ($options) {
+            if ($data === null) return;
+            $name = $options[(int)$data[0]] ?? null;
+            if ($name === null) return;
+            $this->handleRequest($player, [$name]);
+        });
+        $form->setTitle("Trade Request");
+        $form->addDropdown("Select Player", $options);
+        $player->sendForm($form);
+    }
+
+    private function showIncomingTradesForm(Player $player): void {
+        $incoming = [];
+        foreach ($this->pendingRequests as $target => $requester) {
+            if ($target === $player->getName()) {
+                $incoming[] = $requester;
+            }
+        }
+        if (empty($incoming)) {
+            $player->sendMessage($this->msg("noPendingRequests"));
+            return;
+        }
+        $form = new SimpleForm(function(Player $player, ?int $data) use ($incoming) {
+            if ($data === null) return;
+            $requester = $incoming[$data] ?? null;
+            if ($requester === null) return;
+            $modal = new ModalForm(function(Player $player, ?bool $choice) use ($requester) {
+                if ($choice === null) return;
+                $this->handleResponse($player, $choice ? 'accept' : 'deny');
+            });
+            $modal->setTitle("Trade Request from $requester");
+            $modal->setContent("Do you want to accept the trade request?");
+            $modal->setButton1("Accept");
+            $modal->setButton2("Deny");
+            $player->sendForm($modal);
+        });
+        $form->setTitle("Incoming Trades");
+        foreach ($incoming as $r) {
+            $form->addButton("From $r");
+        }
+        $player->sendForm($form);
     }
 
     private function handleRequest(Player $sender, array $args): void {
