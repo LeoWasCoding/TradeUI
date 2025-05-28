@@ -243,8 +243,8 @@ class TradeSession {
     }
 
     private function updateConfirmButtons(): void {
-        $c = StringToItemParser::getInstance()->parse('lime_wool')->setCustomName('§aConfirm trade');
-        $u = StringToItemParser::getInstance()->parse('red_wool')->setCustomName('§cUnconfirm trade');
+        $c = StringToItemParser::getInstance()->parse('lime_dye')->setCustomName('§aConfirm trade');
+        $u = StringToItemParser::getInstance()->parse('red_dye')->setCustomName('§cUnconfirm trade');
         $this->menu1->getInventory()->setItem($this->confirmSlot, $this->confirmed1 ? $u : $c);
         $this->menu2->getInventory()->setItem($this->confirmSlot, $this->confirmed2 ? $u : $c);
     }
