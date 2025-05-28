@@ -17,6 +17,9 @@
 # Command usage error message shown when player uses /trade incorrectly
 usage: "&cUsage: /trade <player> | /trade accept | /trade deny"
 
+# Shown if there are no players in range to trade with (For Form Only)
+noPlayersInRange: "&cNo players found within {radius} blocks."
+
 # Shown when the specified player is not found online
 playerNotFound: "&cPlayer &e{target}&c not found."
 
