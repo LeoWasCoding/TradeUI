@@ -70,6 +70,7 @@ tradeTimeout: "&cTrade timed out."
 
 # Shown when a player confirms the trade
 confirmSuccess: "&aYou confirmed. Waiting for other..."
+otherConfirmed: "&e{player} confirmed. Waiting for you..."
 
 # Shown when a player un-confirms the trade after confirming
 unconfirm: "&cYou un-confirmed."
