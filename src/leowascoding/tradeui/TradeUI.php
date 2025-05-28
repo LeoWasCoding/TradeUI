@@ -70,7 +70,7 @@ class TradeUI extends PluginBase implements Listener {
             return false;
         }
         
-        if (empty($args) && $this->formApi !== null) {
+        if (empty($args)) {
             $this->showMainMenu($sender);
             return true;
         }
@@ -139,13 +139,13 @@ class TradeUI extends PluginBase implements Listener {
         }
         $form = new SimpleForm(function(Player $player, ?int $data) use ($incoming) {
             if ($data === null) return;
-            $requester = $incoming[$data] ?? null;
-            if ($requester === null) return;
-            $modal = new ModalForm(function(Player $player, ?bool $choice) use ($requester) {
+            $requesterName = $incoming[$data] ?? null;
+            if ($requesterName === null) return;
+            $modal = new ModalForm(function(Player $player, ?bool $choice) use ($requesterName) {
                 if ($choice === null) return;
                 $this->handleResponse($player, $choice ? 'accept' : 'deny');
             });
-            $modal->setTitle("Trade Request from $requester");
+            $modal->setTitle("Trade Request from $requesterName");
             $modal->setContent("Do you want to accept the trade request?");
             $modal->setButton1("Accept");
             $modal->setButton2("Deny");
