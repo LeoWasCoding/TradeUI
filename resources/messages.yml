@@ -1,0 +1,93 @@
+# ┌────────────────────────────────────────────────────────────┐
+# │                  TradeUI Message Configuration             │
+# └────────────────────────────────────────────────────────────┘
+# Placeholder Reference:
+# {target}     - Target player name (the one being traded with)
+# {requester}  - Player who sent the trade request
+# {radius}     - Maximum allowed trade distance in blocks
+# {other}      - The other player in the trade session
+# {player}     - Generic placeholder for a player (e.g. who unconfirmed)
+# {seconds}    - Countdown seconds
+# {item}       - Item name that was dropped due to inventory overflow
+# {reason}     - Reason the trade was cancelled (e.g., "timeout", "quit")
+# ┌────────────────────────────────────────────────────────────┐
+# │                         Messages                           │
+# └────────────────────────────────────────────────────────────┘
+
+# Command usage error message shown when player uses /trade incorrectly
+usage: "&cUsage: /trade <player> | /trade accept | /trade deny"
+
+# Shown when the specified player is not found online
+playerNotFound: "&cPlayer &e{target}&c not found."
+
+# Shown if the player tries to trade with themselves
+cannotSelfTrade: "&cYou cannot trade with yourself."
+
+# Shown if there's already a trade request pending involving the player
+alreadyPending: "&cA trade request is already pending."
+
+# Shown if either player is already engaged in another trade session
+alreadyInSession: "&cOne of you is already in a trade."
+
+# Shown when the target player is too far away to initiate a trade
+tooFarRequest: "&cPlayer is too far away. You must be within {radius} blocks."
+
+# Message sent to the target player when a trade request is initiated
+requestSent: "&aTrade request sent to &e{target}&a."
+
+# Message shown to the receiving player when they get a trade request
+requestReceived: "&eTrade request from &e{requester}&e. Use &a/trade accept &eor &a/trade deny&e."
+
+# Shown to the target player when the request from requester times out
+requestExpiredTarget: "&cYour trade request from &e{requester}&c expired."
+
+# Shown to the requester when their trade request to the target expires
+requestExpiredRequester: "&cYour trade request to &e{target}&c expired."
+
+# Shown to a player who tries to accept/deny a trade when they have no pending requests
+noPendingRequests: "&cYou have no pending trade requests."
+
+# Shown to a player if the person who sent the trade request is no longer online
+requesterOffline: "&cTrade requester &e{requester}&c is no longer online."
+
+# Shown to the receiver when they deny a trade request
+denyReceiver: "&cYou denied the trade request from &e{requester}&c."
+
+# Shown to the requester when the target player denies the trade request
+denyRequester: "&c{target} denied your trade request."
+
+# Shown if players move too far apart after initiating a trade
+tooFarAccept: "&cPlayer moved too far. Trade canceled."
+
+# Shown to both players when the trade officially starts
+tradeStarted: "&aTrade started with &e{other}&a."
+
+# Shown if the trade session times out due to inactivity
+tradeTimeout: "&cTrade timed out."
+
+# Shown when a player confirms the trade
+confirmSuccess: "&aYou confirmed. Waiting for other..."
+
+# Shown when a player un-confirms the trade after confirming
+unconfirm: "&cYou un-confirmed."
+
+# Shown to a player when the other person un-confirms the trade
+otherUnconfirm: "&c{player} un-confirmed."
+
+# Shown when both players confirm and the countdown to complete trade starts
+countdownStart: "&aTrade will complete in {seconds} seconds."
+
+# Tick message shown each second during the countdown
+countdownTick: "&e{seconds}..."
+
+# Shown if the countdown is canceled (e.g. unconfirmed or moved)
+countdownCancel: "&cCountdown canceled."
+
+# Shown when a traded item doesn’t fit in inventory and is dropped
+overflowDropped: "&eDropped overflow: {item}"
+
+# Final message shown when the trade is successfully completed
+tradeComplete: "&aTrade complete!"
+
+# Shown to both players when a trade is canceled and items are returned
+cancelReturn: "&cTrade cancelled ({reason}). Items returned."

@@ -1,0 +1,24 @@
+# ┌────────────────────────────────────────────────────────────┐
+# │                     TradeUI Settings                        │
+# └────────────────────────────────────────────────────────────┘
+#
+# Configuration parameters for trading mechanics:
+#
+# trade-radius:
+#   - The maximum distance (in blocks) allowed between two players 
+#     when sending or accepting a trade request.
+#   - Players further apart than this radius cannot trade.
+#
+# request-timeout:
+#   - Duration (in seconds) that a trade request stays pending.
+#   - If not accepted or denied within this time, the request expires automatically.
+#
+# trade-timeout:
+#   - Duration (in seconds) a started trade session may last.
+#   - If the trade isn't completed within this time, it cancels automatically.
+
+trade-radius: 10.0
+
+request-timeout: 30
+
+trade-timeout: 30
