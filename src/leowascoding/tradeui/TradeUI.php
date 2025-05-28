@@ -115,7 +115,7 @@ class TradeUI extends PluginBase implements Listener {
                     unset($this->plugin->pendingRequests[$this->target]);
                     $t = Server::getInstance()->getPlayerExact($this->target);
                     $r = Server::getInstance()->getPlayerExact($this->requester);
-                    if($t) $t->sendMessage($this->plugin->msg("requestExpiredTarget", ["requester" => $this->requester]));
+                    if($t) $t->sendMessage($this->msg("requestExpiredTarget", ["requester" => $this->requester]));
                     if($r) $r->sendMessage($this->plugin->msg("requestExpiredRequester", ["target" => $this->target]));
                 }
             }
