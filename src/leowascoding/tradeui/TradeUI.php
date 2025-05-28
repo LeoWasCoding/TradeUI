@@ -131,7 +131,7 @@ class TradeUI extends PluginBase implements Listener {
             }
         }
         if (empty($incoming)) {
-            $player->sendMessage($this->msg("noPendingRequests"));
+            $player->sendMessage("§cYou have no pending trade requests.");
             return;
         }
         $form = new SimpleForm(function(Player $player, ?int $data) use ($incoming) {
