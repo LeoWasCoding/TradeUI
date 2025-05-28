@@ -21,7 +21,7 @@ use pocketmine\scheduler\TaskHandler;
 class TradeUI extends PluginBase implements Listener {
     private Config $config;
     private $messages;
-    protected array $pendingRequests = [];
+    public array $pendingRequests = [];
     private array $sessions = [];
 
     public function onEnable(): void {
@@ -63,14 +63,6 @@ class TradeUI extends PluginBase implements Listener {
         }
         // convert & color codes to § cuz its easier to use &..
         return str_replace("&", "§", $message);
-    }
-
-    public function getPendingRequests(): array {
-        return $this->pendingRequests;
-    }
-    
-    public function removePendingRequest(string $target): void {
-        unset($this->pendingRequests[$target]);
     }
 
     private function handleRequest(Player $sender, array $args): void {
@@ -118,14 +110,13 @@ class TradeUI extends PluginBase implements Listener {
             }
 
             public function onRun(): void {
-                if (($this->plugin->getPendingRequest($this->target) ?? null) === $this->requester) {
-                    $this->plugin->removePendingRequest($this->target);
-            
+                if (isset($this->plugin->pendingRequests[$this->target])
+                    && $this->plugin->pendingRequests[$this->target] === $this->requester) {
+                    unset($this->plugin->pendingRequests[$this->target]);
                     $t = Server::getInstance()->getPlayerExact($this->target);
                     $r = Server::getInstance()->getPlayerExact($this->requester);
-            
-                    if ($t) $t->sendMessage($this->plugin->msg("requestExpiredTarget", ["requester" => $this->requester]));
-                    if ($r) $r->sendMessage($this->plugin->msg("requestExpiredRequester", ["target" => $this->target]));
+                    if($t) $t->sendMessage($this->msg("requestExpiredTarget", ["requester" => $this->requester]));
+                    if($r) $r->sendMessage($this->msg("requestExpiredRequester", ["target" => $this->target]));
                 }
             }
         }, $timeoutTicks);
