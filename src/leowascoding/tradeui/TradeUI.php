@@ -191,6 +191,10 @@ class TradeSession {
     private array $dividerSlots = [4,13,22,31,40];
     private int $confirmSlot = 53;
 
+    private function msg(string $key, array $vars = []): string {
+        return $this->plugin->msg($key, $vars);
+    }
+
     public function __construct(TradeUI $plugin, Player $p1, Player $p2) {
         $this->plugin = $plugin;
         $this->p1 = $p1;
