@@ -278,11 +278,20 @@ class TradeUI extends PluginBase implements Listener {
             return;
         }
         if ($action === 'deny') {
+            // Cancel cooldown/session if any
+            if (isset($this->sessions[$name])) {
+                $this->sessions[$name]->cancelCountdown();
+                unset($this->sessions[$name]);
+            }
+            if (isset($this->sessions[$requesterName])) {
+                $this->sessions[$requesterName]->cancelCountdown();
+                unset($this->sessions[$requesterName]);
+            }
             $sender->sendMessage($this->msg("denyReceiver", ["requester" => $requesterName]));
             $requester->sendMessage($this->msg("denyRequester", ["target" => $name]));
             return;
         }
-
+    
         // accept
         $radius = (float)$this->config->get('trade-radius', 10);
         if ($sender->getPosition()->distance($requester->getPosition()) > $radius) {
@@ -294,7 +303,7 @@ class TradeUI extends PluginBase implements Listener {
             $sender->sendMessage($this->msg("alreadyInSession"));
             return;
         }
-
+    
         $session = new TradeSession($this, $requester, $sender);
         $this->sessions[$name] = $session;
         $this->sessions[$requesterName] = $session;
