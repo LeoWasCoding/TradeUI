@@ -138,7 +138,7 @@ class TradeUI extends PluginBase implements Listener {
             if ($data === null) return;
             $requesterName = $incoming[$data] ?? null;
             if ($requesterName === null) return;
-            $modal = new ModalForm(function(Player $player, ?bool $choice) use ($requesterName) {
+            $modal = new ModalForm(function(Player $player, ?bool $choice) {
                 if ($choice === null) return;
                 $this->handleResponse($player, $choice ? 'accept' : 'deny');
             });
