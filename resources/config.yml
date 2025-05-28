@@ -16,9 +16,18 @@
 # trade-timeout:
 #   - Duration (in seconds) a started trade session may last.
 #   - If the trade isn't completed within this time, it cancels automatically.
-
+#
+# allowed-worlds:
+#   - List of world names where trading is permitted.
+#   - Trades can only be initiated or accepted if both players are in one of these worlds.
+#
 trade-radius: 10.0
 
 request-timeout: 30
 
 trade-timeout: 30
+
+allowed-worlds:
+  - world
+  - world_nether
+  - world_the_end
