@@ -87,13 +87,10 @@ class TradeUI extends PluginBase implements Listener {
     private function showMainMenu(Player $player): void {
         $form = new SimpleForm(function(Player $player, ?int $data) {
             if ($data === null) return;
-            switch ($data) {
-                case 0:
-                    $this->showRequestForm($player);
-                    break;
-                case 1:
-                    $this->showIncomingTradesForm($player);
-                    break;
+            if ($data === 0) {
+                $this->showRequestForm($player);
+            } elseif ($data === 1) {
+                $this->showIncomingTradesForm($player);
             }
         });
         $form->setTitle("Trade Menu");
