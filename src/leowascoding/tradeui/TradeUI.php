@@ -305,15 +305,19 @@ class TradeSession {
             return;
         }
         $this->countdownActive = true;
-        $this->p1->sendMessage($this->msg("countdownStart", ["seconds" => 3]));
-        $this->p2->sendMessage($this->msg("countdownStart", ["seconds" => 3]));
-
-        $this->countdownHandler = $this->plugin->getScheduler()->scheduleRepeatingTask(new class($this) extends Task {
+        $this->p1->sendMessage($this->plugin->msg("countdownStart", ["seconds" => 3]));
+        $this->p2->sendMessage($this->plugin->msg("countdownStart", ["seconds" => 3]));
+    
+        $this->countdownHandler = $this->plugin->getScheduler()->scheduleRepeatingTask(new class($this, $this->plugin) extends Task {
             private TradeSession $session;
+            private TradeUI $plugin;
             private int $count = 3;
-            public function __construct(TradeSession $session) {
+    
+            public function __construct(TradeSession $session, TradeUI $plugin) {
                 $this->session = $session;
+                $this->plugin = $plugin;
             }
+    
             public function onRun(): void {
                 if ($this->count <= 0) {
                     $this->session->complete();
