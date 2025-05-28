@@ -320,8 +320,8 @@ class TradeSession {
                     $this->getHandler()->cancel();
                     return;
                 }
-                $this->session->getPlayer1()->sendMessage($this->msg("countdownTick", ["seconds" => $this->count]));
-                $this->session->getPlayer2()->sendMessage($this->msg("countdownTick", ["seconds" => $this->count]));
+                $this->session->getPlayer1()->sendMessage($this->plugin->msg("countdownTick", ["seconds" => $this->count]));
+                $this->session->getPlayer2()->sendMessage($this->plugin->msg("countdownTick", ["seconds" => $this->count]));
                 $this->count--;
             }
         }, 20);
