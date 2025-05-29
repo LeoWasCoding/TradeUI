@@ -1,5 +1,5 @@
 name: TradeUI
-version: 3.0.0
+version: 4.0.0
 main: leowascoding\tradeui\TradeUI
 api: 5.3.0
 commands:
@@ -10,5 +10,5 @@ commands:
 permissions:
   tradeui.command:
     default: true
-  tradeui.reload:
+  trade.reload:
     default: op
