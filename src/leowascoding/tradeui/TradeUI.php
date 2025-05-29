@@ -94,7 +94,7 @@ class TradeUI extends PluginBase implements Listener {
         }
 
         if (!empty($this->allowedWorlds) && !in_array($sender->getWorld()->getFolderName(), $this->allowedWorlds, true)) {
-            $sender->sendMessage("Trading is not allowed in this world.");
+            $sender->sendMessage("§7[§4Warning§7] §cTrading is not allowed in this world.");
             return true;
         }
 
