@@ -95,3 +95,6 @@ tradeComplete: "&aTrade complete!"
 
 # Shown to both players when a trade is canceled and items are returned
 cancelReturn: "&cTrade cancelled ({reason}). Items returned."
+
+# Shown when a player drops an item while in trade menu
+cannotDropItemsDuringTrade: "&cYou cannot drop items during a trade session."
